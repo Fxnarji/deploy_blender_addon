@@ -4,7 +4,7 @@ description: "Builds a Blender extension and pushes it to a target repository."
 inputs:
   blender-version:
     required: false
-    default: "4.4"
+    default: "4.4" #temporarily only
   target-repo:
     required: true
   token:
