@@ -1,0 +1,48 @@
+name: "Build and deploy Blender add-on"
+description: "Builds a Blender extension and pushes it to a target repository."
+
+inputs:
+  blender-version:
+    required: true
+  target-repo:
+    required: true
+  token:
+    required: true
+  output-dir:
+    required: false
+    default: builds
+
+runs:
+  using: "composite"
+  steps:
+    - uses: bradyajohnston/setup-blender@v3
+      with:
+        version: ${{ inputs.blender-version }}
+
+    - name: Build add-on
+      shell: bash
+      run: |
+        rm -rf "${{ inputs.output-dir }}"
+        mkdir -p "${{ inputs.output-dir }}"
+        blender --command extension build --source-dir . --output-dir "${{ inputs.output-dir }}" --verbose
+        echo "Built files:"
+        ls -lh "${{ inputs.output-dir }}"
+
+    - name: Push to repo
+      shell: bash
+      run: |
+        mkdir temp_push
+        cd temp_push
+        git clone https://x-access-token:${{ inputs.token }}@github.com/${{ inputs.target-repo }} .
+        git config user.name "github-actions"
+        git config user.email "github-actions@github.com"
+
+        NEW_FILE="$(ls "$GITHUB_WORKSPACE/${{ inputs.output-dir }}")"
+        ADDON_BASE="$(echo "$NEW_FILE" | sed -E 's/-[0-9]+\.[0-9]+\.[0-9]+\.zip$//')"
+
+        rm -f $(ls | grep -E "^${ADDON_BASE}-[0-9]+\.[0-9]+\.[0-9]+\.zip$") || true
+        cp "$GITHUB_WORKSPACE/${{ inputs.output-dir }}/$NEW_FILE" .
+
+        git add .
+        git commit -m "Update $NEW_FILE" || true
+        git push origin main
